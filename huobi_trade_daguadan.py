@@ -4,7 +4,8 @@
 import sys
 import os
 
-append_path = r'C:\Klaus\System\08huobi\demo_python-master'
+from setting import append_path
+
 sys.path.append(append_path)
 
 from Setting.setting import *
@@ -24,43 +25,37 @@ __author__ = 'KlausQiu'
 #火币网莱特币交易主程序
 class ltc_trade():
     def __init__(self):
-        try:
-            #获取行情
-            self.ticker_ltc = requests.get(r'http://api.huobi.com/staticmarket/ticker_ltc_json.js',timeout=5).json()
-            #获取账户信息
-            self.account_info = HuobiService.getAccountInfo(ACCOUNT_INFO)
-            #所有委托单。huobi设了上限为50个
-            self.getOrder = HuobiService.getOrders(2,GET_ORDERS)
-            #卖单数量
-            self.sellOne_count = [order for order in self.getOrder if order['type'] == 2]
-            #买单数量
-            self.buyOne_count = [order for order in self.getOrder if order['type'] == 1]
-            #已完成的委托
-            #self.dealOrders =  HuobiService.getNewDealOrders(2,NEW_DEAL_ORDERS)
-            #资产折合
-            self.total = float(self.account_info['total'])
-             #卖一价
-            self.limit_price = self.ticker_ltc['ticker']['sell']
-            #买一价
-            self.buyone_price = self.ticker_ltc['ticker']['buy']
-            #总量
-            self.trade_total = self.ticker_ltc['ticker']['vol']
-            #限制挂单数量
-            self.orderCount = self.handler_orderCount()
-            #可用资金
-            self.a_cny_display = float(self.account_info['available_cny_display'])
-            #可用莱特币
-            self.a_ltc_display = float(self.account_info['available_ltc_display'])
-            #数据库操作
-            self.db = db_control()
-            self.buyOneOrders = self.buyOneOrders if self.buyOneOrders else []
-            self.buyOneOrders = self.handler_buyOne_order()
-            
-            self.SellOneOrders = self.SellOneOrders if self.SellOneOrders else []
-            self.SellOneOrders = self.handler_SellOne_order()
-        except BaseException as e:
-            print u'无法获取数据',e
-            return 
+        #获取行情
+        self.ticker_ltc = requests.get(r'http://api.huobi.com/staticmarket/ticker_ltc_json.js',timeout=5).json()
+        #获取账户信息
+        self.account_info = HuobiService.getAccountInfo(ACCOUNT_INFO)
+        #所有委托单。huobi设了上限为50个
+        self.getOrder = HuobiService.getOrders(2,GET_ORDERS)
+        #卖单数量
+        self.sellOne_count = [order for order in self.getOrder if order['type'] == 2]
+        #买单数量
+        self.buyOne_count = [order for order in self.getOrder if order['type'] == 1]
+        #已完成的委托
+        #self.dealOrders =  HuobiService.getNewDealOrders(2,NEW_DEAL_ORDERS)
+        #资产折合
+        self.total = float(self.account_info['total'])
+         #卖一价
+        self.limit_price = self.ticker_ltc['ticker']['sell']
+        #买一价
+        self.buyone_price = self.ticker_ltc['ticker']['buy']
+        #总量
+        self.trade_total = self.ticker_ltc['ticker']['vol']
+        #限制挂单数量
+        self.orderCount = self.handler_orderCount()
+        #可用资金
+        self.a_cny_display = float(self.account_info['available_cny_display'])
+        #可用莱特币
+        self.a_ltc_display = float(self.account_info['available_ltc_display'])
+        #数据库操作
+        self.db = db_control()
+                
+        # self.SellOneOrders = self.SellOneOrders if self.SellOneOrders else []
+        # self.SellOneOrders = self.handler_SellOne_order()
            
     #获取订单详情
     def orderInfo(self,orderId):
@@ -93,7 +88,7 @@ class ltc_trade():
                     print u'orderInfo wrong,',e
                     return 
 
-                if float(buyOrder['buy_price'])+0.05 < buyOne_price and float(buyOrder['buy_count']) == buy_count:
+                if float(buyOrder['buy_price'])+0.06 < buyOne_price and float(buyOrder['buy_count']) == buy_count:
                     print u'当前买1价:',buyOne_price
                     method_collection.cancel_order(buyOrder['order_id'])
                     print u'取消单价格:%s'%buyOrder['buy_price']
@@ -115,8 +110,9 @@ class ltc_trade():
                             print 'Sell TEST_PRICE:',test_price
 
                             if set(test_price).issubset(set(SellOrderPrice)):
-                                print u'超买！！!'
-                                time.sleep(20)
+                                msg = u'超买！！!'
+                                method_collection.record_log(msg)
+
 
                             for price in test_price:
                                 if price not in SellOrderPrice:
@@ -131,7 +127,7 @@ class ltc_trade():
                             #如果不幸发生超买，那+0.04卖出
                             control = False    
                             if set(test_price).issubset(set(SellOrderPrice)):
-                                pass
+                                control = True
                                     
                             if control:
                                 sell_price = method_collection.float_format(float(order_info['order_price'])) + 0.04
@@ -164,7 +160,6 @@ class ltc_trade():
                     print u'委托单价格: %.2f 挂单排队'%float(buyOrder['buy_price'])
 
         print u'handler_buyOne_sell---->>>END'
-        time.sleep(2)
 
     #生成买单列表
     def handler_buyOne_order(self):
@@ -257,7 +252,7 @@ class ltc_trade():
 
         #上方挂单
         test_price = [float_format(float(buy_price)+n) for n in d_money]
-        print 'test price:',test_price
+        print u'测试价格:',test_price
         
         SellOrderPrice = []
         # if self.SellOneOrders:
@@ -311,9 +306,11 @@ class ltc_trade():
                 return
             else:
                 print u'没买成功.%s'%buy_price
+                self.handler_buyOne_sell(self.buyOneOrders)
                 return 
 
         #下方挂买单
+        d_money.append(0.04)
         listBuyPrice = [float_format(float(buy_price)-n) for n in d_money]
         print 'listBuyPrice:',listBuyPrice
         for x in listBuyPrice:
@@ -334,11 +331,11 @@ class ltc_trade():
                 self.buyOneOrders.append({'buy_price':buy_result[0],'buy_count':buy_result[1],'order_id':buy_result[2]})
                 self.handler_buyOne_sell(self.buyOneOrders)
 
-        elif len(self.buyOne_count) == 0 and self.a_ltc_display > 0:
-            self.buyOneOrders = self.handler_buyOne_order()
-            self.handler_buyOne_sell(self.buyOneOrders)
+        # elif len(self.buyOne_count) == 0 and self.a_ltc_display > 0:
+        #     self.buyOneOrders = self.handler_buyOne_order()
+        #     self.handler_buyOne_sell(self.buyOneOrders)
 
-        elif len(self.buyOne_count) >= 1:
+        elif len(self.buyOne_count) >= 1 or len(self.sellOne_count) >= 0:
             self.handler_buy(buy_price,buy_type)
     
         else:
@@ -355,30 +352,25 @@ class ltc_trade():
         if buy_type == 'buy_1':
             print u'handler_getOrders---->>>BEGIN'  
             # buy_count = self.handler_buy_count(buy_price,buy_count)
-            try:
-                self.getOrder = HuobiService.getOrders(2,GET_ORDERS)
-            except BaseException as e:
-                print 'handler_getOrders error:',e
-                return 
             if self.getOrder:
                 if len(self.sellOne_count) >= self.orderCount:
                     print u'委托超过%s个'%self.orderCount
                     print u'监控所有买单'
                     for order in self.buyOneOrders:
                         print order
-                    handler_buyOne_order = self.handler_buyOne_order()
+                    self.buyOneOrders = self.handler_buyOne_order()
                     self.handler_buyOne_sell(self.buyOneOrders)
                     time.sleep(10)
-                if len(self.getOrder) == 0:
+                elif  0 < len(self.sellOne_count) < self.orderCount:
+                    buy_price = self.ticker_ltc['ticker']['buy']
+                    self.limit_buy_count(buy_price,buy_count,buy_type)
+            elif len(self.getOrder) == 0:
                     buy_price = self.ticker_ltc['ticker']['sell']
                     buy_result = method_collection.ltc_buy(buy_price, buy_count,buy_type)
                     if buy_result:
                         self.buyOneOrders.append({'buy_price':buy_result[0],'buy_count':buy_result[1],'order_id':buy_result[2]})
                         self.handler_buyOne_sell(self.buyOneOrders)
-                elif  0 < len(self.sellOne_count) < self.orderCount:
-                    buy_price = self.ticker_ltc['ticker']['buy']
-                    self.limit_buy_count(buy_price,buy_count,buy_type)
-                print u'handler_getOrders----->>>>END'
+            print u'handler_getOrders----->>>>END'
                         
 
     def start(self,buy_type):
@@ -406,11 +398,11 @@ class ltc_trade():
                 except BaseException as e:
                     print u'无法初始化',e
                     return 
-                # self.handler_buyOne_sell(self.buyOneOrders)
 
-                
+                self.buyOneOrders = self.handler_buyOne_order()
+
                 #print u'当前成交量:',self.trade_total
-                print u'当前委单数: ',len(self.getOrder) if self.getOrder else 0,u'单'
+                print u'当前委单数: ',len(self.getOrder),u'单'
                 #成交量大于1100万的时候，量太大的时候要么暴跌要么爆涨!(取消掉，靠成交量判断趋势太low)
                 if self.limit_price >= over_high_price:
                     print u'当前价格:%s 已超过指定金额'%self.limit_price
