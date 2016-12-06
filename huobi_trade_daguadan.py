@@ -110,7 +110,7 @@ class ltc_trade():
                             print 'Sell TEST_PRICE:',test_price
 
                             if set(test_price).issubset(set(SellOrderPrice)):
-                                msg = u'超买！！!价格:%.2f'%test_price
+                                msg = u'超买！！!价格:%.2f \n'%test_price
                                 method_collection.record_log(msg)
 
 
@@ -121,25 +121,24 @@ class ltc_trade():
                                     if SellResult:
                                         self.SellOneOrders.append({'sell_price':SellResult[0],'sell_count':SellResult[1],'order_id':SellResult[2]})
                                         SellOrderPrice.append(price)
-                                    break
+                                break
 
                             #如果不幸发生超买，那+0.04卖出
                             control = False    
                             if set(test_price).issubset(set(SellOrderPrice)):
-                                pass
+                                control = True
                                     
                             if control:
-                                sell_price = method_collection.float_format(float(order_info['order_price'])) + 0.04
+                                sell_price = method_collection.float_format(float(order_info['order_price'])) + 0.5
                                 msg = u'control Order price:%s'%sell_price
                                 print msg
                                 method_collection.ltc_sell(sell_price,order_info['processed_amount'])
                                 method_collection.record_log(msg)
 
-                            try:
-                                buyOneOrders.remove(buyOrder)
-                                self.buyOneOrders = buyOneOrders
-                            except BaseException as e:
-                                print 'delete message wrong.',e
+                            #删除对应的order元素
+                            buyOneOrders.remove(buyOrder)
+                            self.buyOneOrders = buyOneOrders
+                            
                             if not self.buyOneOrders:
                                 self.buyOneOrders = []
                             method_collection.record_log("\n%s"%order_info)
@@ -178,36 +177,6 @@ class ltc_trade():
                     if method_collection.float_format(buy_price)+0.1 >= method_collection.float_format(order['order_price']):
                         self.SellOneOrders.append({'sell_price':order['order_price'],'sell_count':order['order_amount'],'order_id':order['id']})
         return self.SellOneOrders
-
-    #处理买单数量
-    def handler_buy_count(self,buy_price,buy_count):
-        try:
-            yesterday = json.loads(urllib2.urlopen(r'http://api.huobi.com/staticmarket/ltc_kline_100_json.js').read())
-        except:
-            print u'无法获取昨日数据'
-        #昨天的最高价
-        if yesterday:
-            yesterday_total = yesterday[-2][2]
-            #昨天的最低价
-            yesterday_low = yesterday[-2][3]
-            if buy_price >= yesterday_total:
-                buy_count -= 0.05
-            if buy_price < yesterday_low:
-                buy_count += 0.01
-            return buy_count    
-
-
-    #处理卖出数量
-    def handler_sell_count(self,buy_count):
-        sell_count = HuobiService.getAccountInfo(ACCOUNT_INFO)['available_ltc_display']
-        if sell_count == u'0.0000':
-            return None
-        else:
-            if sell_count > buy_count:
-                return buy_count
-            else:
-                return sell_count
-
 
     #根据交易量决定挂单数。
     def handler_orderCount(self):
@@ -253,12 +222,6 @@ class ltc_trade():
         #上方挂单
         test_price = [float_format(float(buy_price)+n) for n in d_money]
         print u'测试价格:',test_price
-        
-        SellOrderPrice = []
-        # if self.SellOneOrders:
-        #     for order in self.SellOneOrders:
-        #         if float_format(float(order['sell_price'])) in test_price and float(order['sell_count']) == buy_count:
-        #             SellOrderPrice.append(float_format(order['sell_price']))
 
         #当前卖单价格列表
         if self.sellOne_count:
