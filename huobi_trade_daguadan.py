@@ -35,8 +35,6 @@ class ltc_trade():
         self.sellOne_count = [order for order in self.getOrder if order['type'] == 2]
         #买单数量
         self.buyOne_count = [order for order in self.getOrder if order['type'] == 1]
-        #已完成的委托
-        #self.dealOrders =  HuobiService.getNewDealOrders(2,NEW_DEAL_ORDERS)
         #资产折合
         self.total = float(self.account_info['total'])
          #卖一价
@@ -53,9 +51,6 @@ class ltc_trade():
         self.a_ltc_display = float(self.account_info['available_ltc_display'])
         #数据库操作
         self.db = db_control()
-                
-        # self.SellOneOrders = self.SellOneOrders if self.SellOneOrders else []
-        # self.SellOneOrders = self.handler_SellOne_order()
            
     #获取订单详情
     def orderInfo(self,orderId):
@@ -138,7 +133,7 @@ class ltc_trade():
                             #删除对应的order元素
                             buyOneOrders.remove(buyOrder)
                             self.buyOneOrders = buyOneOrders
-                            
+
                             if not self.buyOneOrders:
                                 self.buyOneOrders = []
                             method_collection.record_log("\n%s"%order_info)
@@ -284,22 +279,18 @@ class ltc_trade():
         self.handler_buyOne_sell(self.buyOneOrders)
 
     #限制购买次数
-    def limit_buy_count(self,buy_price,buy_count,):
+    def limit_buy_count(self,buy_price,buy_count):
         print u'limit_buy_count---->>>BEGIN'
                 
         if len(self.buyOne_count) == 0 and self.a_ltc_display == 0:
             print u'买1 没有委托单,尝试买入'
-            buy_result = method_collection.ltc_buy(buy_price, buy_count,)
+            buy_result = method_collection.ltc_buy(buy_price, buy_count)
             if buy_result:
                 self.buyOneOrders.append({'buy_price':buy_result[0],'buy_count':buy_result[1],'order_id':buy_result[2]})
                 self.handler_buyOne_sell(self.buyOneOrders)
 
-        # elif len(self.buyOne_count) == 0 and self.a_ltc_display > 0:
-        #     self.buyOneOrders = self.handler_buyOne_order()
-        #     self.handler_buyOne_sell(self.buyOneOrders)
-
         elif len(self.buyOne_count) >= 1 or len(self.sellOne_count) >= 0:
-            self.handler_buy(buy_price,)
+            self.handler_buy(buy_price)
     
         else:
             self.handler_buyOne_order()
@@ -338,10 +329,10 @@ class ltc_trade():
     def start(self):
         self.buyOneOrders = []
         self.SellOneOrders = []
-        # while True:
-        #     self.run()
-        #     continue
-        self.run()
+        while True:
+            self.run()
+            continue
+
 
     #主运行程序，策略判断买入卖出
     def run(self):
@@ -392,8 +383,6 @@ if __name__ == '__main__':
     # t.join()
     ltc_trade.__init__()
     ltc_trade.start()
-    print ltc_trade.getOrder
-    print ltc_trade.handler_buyOne_order()
 
 #python C:\Klaus\System\08huobi\demo_python-master\lowProfit\huobi_trade.py
 #python  C:\Users\moonq\OneDrive\python\06huobi\demo_python-master\lowProfit\huobi_trade.py
