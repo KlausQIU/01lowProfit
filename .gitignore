@@ -1,2 +1,3 @@
 *.db
 setting.py
+*.log
