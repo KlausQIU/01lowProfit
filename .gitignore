@@ -3,3 +3,6 @@ setting.py
 *.log
 *.bat
 *.pyc
+*.exe
+*.rar
+*.zip
