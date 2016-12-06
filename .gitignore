@@ -1,3 +1,4 @@
 *.db
 setting.py
 *.log
+*.bat
