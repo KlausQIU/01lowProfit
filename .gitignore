@@ -2,3 +2,4 @@
 setting.py
 *.log
 *.bat
+*.pyc
