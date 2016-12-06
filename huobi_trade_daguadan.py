@@ -218,6 +218,7 @@ class ltc_trade():
         test_price = [float_format(float(buy_price)+n) for n in d_money]
         print u'测试价格:',test_price
 
+        SellOrderPrice = []
         #当前卖单价格列表
         if self.sellOne_count:
             for order in self.sellOne_count:
@@ -233,20 +234,26 @@ class ltc_trade():
         repeatBuyOrder = method_collection.listRepeat(BuyOrderPrice if BuyOrderPrice else [])
         if repeatBuyOrder:
             for key in repeatBuyOrder:
-                method_collection.cancel_order(order['order_id'] for order in self.buyOne_count if order['order_price'] == key)
+                for order in self.buyOneOrders:
+                    if float_format(order['buy_price']) == key:             
+                        method_collection.cancel_order(order['order_id'])
+                        self.buyOneOrders.remove(order)
 
         print u'limit_buy BuyOrderPrice:',sorted(BuyOrderPrice)
         print u'limit_buy SellOrderPrice:',sorted(SellOrderPrice)
 
-        #触发够买条件和防超买
+        #触发购买条件和防超买
         control = False
         superCount = 0
         for price in test_price:
-            if price not in SellOrderPrice and buy_price not in BuyOrderPrice:
+            if price not in SellOrderPrice:
                 control = True
 
             if price in SellOrderPrice and buy_price == max(BuyOrderPrice) if BuyOrderPrice else None:
                 superCount += 1
+
+        if buy_price in BuyOrderPrice:
+                control = False
 
         if superCount >= 3:
             for order in self.buyOneOrders:
@@ -291,7 +298,7 @@ class ltc_trade():
 
         elif len(self.buyOne_count) >= 1 or len(self.sellOne_count) >= 0:
             self.handler_buy(buy_price)
-    
+        
         else:
             self.handler_buyOne_order()
             msg = u'已在同一价格购买超过1次，不再购买\n'
@@ -346,6 +353,8 @@ class ltc_trade():
                     print u'无法初始化',e
                     return 
 
+                if float_format(self.a_cny_display) <= 10:
+                    time.sleep(200)
                 self.buyOneOrders = self.handler_buyOne_order()
 
                 #print u'当前成交量:',self.trade_total
@@ -384,5 +393,3 @@ if __name__ == '__main__':
     ltc_trade.__init__()
     ltc_trade.start()
 
-#python C:\Klaus\System\08huobi\demo_python-master\lowProfit\huobi_trade.py
-#python  C:\Users\moonq\OneDrive\python\06huobi\demo_python-master\lowProfit\huobi_trade.py
