@@ -88,9 +88,6 @@ class ltc_trade():
                     method_collection.cancel_order(buyOrder['order_id'])
                     print u'取消单价格:%s'%buyOrder['buy_price']
                     buyOneOrders.remove(buyOrder)
-                    self.buyOneOrders = buyOneOrders
-                    if not self.buyOneOrders:
-                        self.buyOneOrders = []
 
                 if float(buyOrder['buy_price']) == buyOne_price:
                     print u"买1 买一价还是:%s"%buyOne_price
@@ -100,7 +97,8 @@ class ltc_trade():
                         if order_info['status'] == 2:
                             print u'买1 买入价格:%s 已买入成功 委托卖出'%order_info['order_price']
                             d_money = [0.01,0.02,0.03]
-                            print 'SELL sellorderprice:',sorted(SellOrderPrice)
+                            SellOrderPrice = sorted(SellOrderPrice)
+                            print 'SELL sellorderprice:',SellOrderPrice
                             test_price = [float_format(float(order_info['order_price'])+n) for n in d_money]
                             print 'Sell TEST_PRICE:',test_price
 
@@ -114,43 +112,41 @@ class ltc_trade():
                                     print price
                                     SellResult = method_collection.ltc_sell(price,order_info['processed_amount'])
                                     if SellResult:
-                                        self.SellOneOrders.append({'sell_price':SellResult[0],'sell_count':SellResult[1],'order_id':SellResult[2]})
-                                        SellOrderPrice.append(price)
-                                break
-
-                            #如果不幸发生超买，那+0.04卖出
-                            control = False    
-                            if set(test_price).issubset(set(SellOrderPrice)):
-                                control = True
-                                    
+                                        # self.SellOneOrders.append({'sell_price':SellResult[0],'sell_count':SellResult[1],'order_id':SellResult[2]})
+                                        SellOrderPrice.append(float_format(price))
+                                        break
+                            control=False      
                             if control:
                                 sell_price = method_collection.float_format(float(order_info['order_price'])) + 0.5
-                                msg = u'control Order price:%s'%sell_price
+                                msg = u'control Order Info:%s'%sell_price
                                 print msg
                                 method_collection.ltc_sell(sell_price,order_info['processed_amount'])
                                 method_collection.record_log(msg)
 
                             #删除对应的order元素
                             buyOneOrders.remove(buyOrder)
-                            self.buyOneOrders = buyOneOrders
-
-                            if not self.buyOneOrders:
-                                self.buyOneOrders = []
+        
                             method_collection.record_log("\n%s"%order_info)
                                                   
                         #手动取消的单移出列表
                         elif order_info['status'] == 3:
-                            print u'买单已取消 买入价格:%s'%order_info['order_price']
+                            msg = u'买单已取消 买入价格:%s \n'%order_info['order_price']
+                            print msg 
+                            method_collection.record_log(msg)
                             buyOneOrders.remove(buyOrder)
-                            self.buyOneOrders = buyOneOrders
-                            if not self.buyOneOrders:
-                                self.buyOneOrders = []
+                            time.sleep(5)
 
                     if not order_info.has_key('status'):
                         print u'orderinfo 返回异常'
 
                 if float(buyOrder['buy_price']) < buyOne_price:
                     print u'委托单价格: %.2f 挂单排队'%float(buyOrder['buy_price'])
+
+        self.buyOneOrders = buyOneOrders
+        for order in self.buyOneOrders if self.buyOneOrders else []:
+            print u'剩余买单:',order,'\n'
+        if not self.buyOneOrders:
+            self.buyOneOrders = []
 
         print u'handler_buyOne_sell---->>>END'
 
@@ -160,7 +156,7 @@ class ltc_trade():
             if self.buyOne_count:
                 for order in self.buyOne_count:
                     if float_format(order['order_amount']) == float_format(buy_count):
-                        self.buyOneOrders.append({'buy_price':order['order_price'],'buy_count':order['order_amount'],'order_id':order['id']})
+                        self.buyOneOrders.append({'buy_price':order['order_price'],'buy_count':float_format(order['order_amount']),'order_id':order['id']})
         return self.buyOneOrders
 
     #生成卖单列表
@@ -170,7 +166,7 @@ class ltc_trade():
                 for order in self.sellOne_count:
                     buy_price = self.ticker_ltc['ticker']['buy']
                     if method_collection.float_format(buy_price)+0.1 >= method_collection.float_format(order['order_price']):
-                        self.SellOneOrders.append({'sell_price':order['order_price'],'sell_count':order['order_amount'],'order_id':order['id']})
+                        self.SellOneOrders.append({'sell_price':order['order_price'],'sell_count':float_format(order['order_amount']),'order_id':order['id']})
         return self.SellOneOrders
 
     #根据交易量决定挂单数。
@@ -231,13 +227,14 @@ class ltc_trade():
             BuyOrderPrice.append(float_format(order['buy_price']))
 
         #清理重复的买单
-        repeatBuyOrder = method_collection.listRepeat(BuyOrderPrice if BuyOrderPrice else [])
-        if repeatBuyOrder:
-            for key in repeatBuyOrder:
-                for order in self.buyOneOrders:
-                    if float_format(order['buy_price']) == key:             
-                        method_collection.cancel_order(order['order_id'])
-                        self.buyOneOrders.remove(order)
+        # repeatBuyOrder = method_collection.listRepeat(BuyOrderPrice if BuyOrderPrice else [])
+        # if repeatBuyOrder:
+        #     for key in repeatBuyOrder:
+        #         if repeatBuyOrder[key] 
+        #         for order in self.buyOneOrders:
+        #             if float_format(order['buy_price']) == key:             
+        #                 method_collection.cancel_order(order['order_id'])
+        #                 self.buyOneOrders.remove(order)
 
         print u'limit_buy BuyOrderPrice:',sorted(BuyOrderPrice)
         print u'limit_buy SellOrderPrice:',sorted(SellOrderPrice)
@@ -257,14 +254,14 @@ class ltc_trade():
 
         if superCount >= 3:
             for order in self.buyOneOrders:
-                if order['buy_price'] == buy_price:
+                if float_format(order['buy_price']) == float_format(buy_price):   
                     method_collection.cancel_order(order['order_id'])
                     print u'超买取消单:%s'%order['buy_price']
                     method_collection.record_log(u'超买取消单:%s'%order['buy_price'])
                     self.buyOneOrders.remove(order)
                 
         if control:
-            buy_result = method_collection.ltc_buy(buy_price, buy_count,)
+            buy_result = method_collection.ltc_buy(buy_price, buy_count)
             if buy_result:
                 self.buyOneOrders.append({'buy_price':buy_result[0],'buy_count':buy_result[1],'order_id':buy_result[2]})
                 #self.db.insert('BUYORDER','Time',buy_result[2],buy_result[0],buy_result[1],None)
@@ -277,10 +274,10 @@ class ltc_trade():
         #下方挂买单
         # d_money.append(0.04)
         listBuyPrice = [float_format(float(buy_price)-n) for n in d_money]
-        print 'listBuyPrice:',listBuyPrice
+        print 'listBuyPrice:',listBuyPrice   
         for x in listBuyPrice:
             if x not in [float(order['buy_price']) for order in self.buyOneOrders]:
-                buy_result = method_collection.ltc_buy(x, buy_count,)
+                buy_result = method_collection.ltc_buy(x, buy_count)
                 if buy_result:
                     self.buyOneOrders.append({'buy_price':buy_result[0],'buy_count':buy_result[1],'order_id':buy_result[2]})
         self.handler_buyOne_sell(self.buyOneOrders)
@@ -289,14 +286,14 @@ class ltc_trade():
     def limit_buy_count(self,buy_price,buy_count):
         print u'limit_buy_count---->>>BEGIN'
                 
-        if len(self.buyOne_count) == 0 and self.a_ltc_display == 0:
-            print u'买1 没有委托单,尝试买入'
-            buy_result = method_collection.ltc_buy(buy_price, buy_count)
-            if buy_result:
-                self.buyOneOrders.append({'buy_price':buy_result[0],'buy_count':buy_result[1],'order_id':buy_result[2]})
-                self.handler_buyOne_sell(self.buyOneOrders)
+        # if len(self.buyOne_count) == 0 and self.a_ltc_display == 0:
+        #     print u'买1 没有委托单,尝试买入'
+        #     buy_result = method_collection.ltc_buy(buy_price, buy_count)
+        #     if buy_result:
+        #         self.buyOneOrders.append({'buy_price':buy_result[0],'buy_count':buy_result[1],'order_id':buy_result[2]})
+        #         self.handler_buyOne_sell(self.buyOneOrders)
 
-        elif len(self.buyOne_count) >= 1 or len(self.sellOne_count) >= 0:
+        if len(self.buyOne_count) >= 0 or len(self.sellOne_count) >= 0:
             self.handler_buy(buy_price)
         
         else:
@@ -326,7 +323,7 @@ class ltc_trade():
                 self.limit_buy_count(buy_price,buy_count,)
         elif len(self.getOrder) == 0:
                 buy_price = self.ticker_ltc['ticker']['sell']
-                buy_result = method_collection.ltc_buy(buy_price, buy_count,)
+                buy_result = method_collection.ltc_buy(buy_price, buy_count)
                 if buy_result:
                     self.buyOneOrders.append({'buy_price':buy_result[0],'buy_count':buy_result[1],'order_id':buy_result[2]})
                     self.handler_buyOne_sell(self.buyOneOrders)
@@ -353,10 +350,11 @@ class ltc_trade():
                     print u'无法初始化',e
                     return 
 
-                if float_format(self.a_cny_display) <= 10:
-                    time.sleep(200)
                 self.buyOneOrders = self.handler_buyOne_order()
-
+                print 'self.buyOneOrders:'
+                for order in self.buyOneOrders:
+                    print order,'\n'
+                
                 #print u'当前成交量:',self.trade_total
                 print u'当前委单数: ',len(self.getOrder) if self.getOrder else None,u'单'
                 if self.limit_price >= over_high_price:
@@ -382,6 +380,8 @@ if __name__ == '__main__':
     method_collection.crucifix()
     method_collection.liquidation_price()
     ltc_trade = ltc_trade()
+    ltc_trade.__init__()
+    ltc_trade.start()
     #method_collection.DT_buy(key)
     #threading_run(method_collection.run_or_not,())
     #threading_run(ltc_trade.start,('sell_1',))
@@ -390,6 +390,5 @@ if __name__ == '__main__':
     #     t.setDaemon(True)
     #     t.start()
     # t.join()
-    ltc_trade.__init__()
-    ltc_trade.start()
+    
 
